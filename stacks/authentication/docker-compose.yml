@@ -51,11 +51,13 @@ services:
       - authentik
   dynomite:
     image: dynomite
+    build:
+      context: dynomite/
     restart: unless-stopped
     networks:
       - authentik
       - traefik
-    environments:
+    environment:
       REDIS_HOST: redis
     ports:
       - 6378:6378
