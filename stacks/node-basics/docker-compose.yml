@@ -1,0 +1,110 @@
+version: "3"
+services:
+  traefik:
+    container_name: traefik
+    image: "traefik:v3.0"
+    restart: unless-stopped
+    command:
+      - '--providers.docker.endpoint=unix:///var/run/docker.sock'
+      - '--providers.docker.exposedByDefault=false'
+      - '--providers.docker.defaultRule=Host(`{{ index .Labels "com.docker.compose.service" }}.$PRIMARY_DOMAIN`)'
+      - '--providers.docker.network=web_interface'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--entrypoints.postgres.address=:5432'
+      - '--entrypoints.redis.address=:6379'
+      - '--entrypoints.ping.address=:81'
+      - '--entrypoints.web.http.redirections.entryPoint.to=websecure'
+      - '--entrypoints.web.http.redirections.entryPoint.scheme=https'
+      - '--entrypoints.websecure.http.tls.certResolver=leresolver'
+      - '--certificatesresolvers.leresolver.acme.email=nina@projectmakeit.com'
+      - '--certificatesresolvers.leresolver.acme.storage=/letsencrypt/acme.json'
+      - '--certificatesresolvers.leresolver.acme.httpchallenge.entrypoint=web'
+      - '--api.dashboard=true'
+      - '--ping.entryPoint=ping'
+    healthcheck:
+      test: ['CMD', 'wget', '-O', '-', 'http://localhost:81/ping']
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5432:5432"
+      - "6379:6379"
+    volumes:
+      - traefik_certs:/letsencrypt
+      - traefik_config:/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      web_interface:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.$PRIMARY_DOMAIN`)"
+      - "traefik.http.routers.dashboard.entryPoints=websecure"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=dash:$DASH_PASS_HASH" 
+      
+  db:
+    image: postgres:12
+    container_name: postgres
+    restart: always
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${PGADMINPASS}
+    networks:
+      postgres:
+      web_interface:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.postgres.rule=HostSNI(`postgres.${PRIMARY_DOMAIN}`)"
+      - "traefik.tcp.routers.postgres.entryPoints=postgres"
+      - "traefik.tcp.routers.postgres.service=postgres"
+      - "traefik.tcp.routers.postgres.tls.certresolver=leresolver"
+      - "traefik.tcp.services.postgres.loadbalancer.server.port=5432"
+  redis:
+    image: redis:6
+    restart: unless-stopped
+    command:
+      - "redis-server"
+      - "--loglevel debug"
+      - "--bind 0.0.0.0"
+      - "--protected-mode no"
+      - "--port 6379"
+      - "--daemonize no"
+      - "--databases 16"
+      - "--aclfile /usr/local/etc/redis/users.acl"
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+    networks:
+      - web_interface
+      - redis
+    volumes:
+      - redis_data:/usr/local/etc/redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.redis.rule=HostSNI(`redis.${PRIMARY_DOMAIN}`)"
+      - "traefik.tcp.routers.redis.entryPoints=redis"
+      - "traefik.tcp.routers.redis.service=redis"
+      - "traefik.tcp.routers.redis.tls.certresolver=leresolver"
+      - "traefik.tcp.services.redis.loadbalancer.server.port=6379"
+volumes:
+  postgres_data:
+    name: postgres_data
+  traefik_config:
+    name: traefik_config
+  traefik_certs:
+    name: traefik_certs
+  redis_data:
+    name: redis_data
+networks:
+  web_interface:
+    name: web_interface
+    attachable: true
+  postgres:
+    name: postgres_interface
+    attachable: true
+  redis:
+    name: redis_interface
+    attachable: true
