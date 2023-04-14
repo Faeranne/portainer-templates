@@ -1,9 +1,7 @@
 {
   "version": "2",
   "templates": [
-    {
-      "type": 1,
-      "title": "Registry",
+    { "type": 1, "title": "Registry",
       "description": "Docker image registry",
       "categories": ["docker"],
       "platform": "linux",
@@ -917,6 +915,10 @@
         "stackfile": "stacks/authentication/docker-compose.yml"
       },
       "env": [
+        {
+          "name": "PRIMARY_DOMAIN",
+          "label": "Base domain attached to this docker node."
+        },
         {
           "name": "DYNO_SEED",
           "label": "Dynomite seed. Enter a random number here."
