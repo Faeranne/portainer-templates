@@ -898,7 +898,7 @@
           "label": "Traefik dashboard password, pre-encoded."
         },
         {
-          "name": "PGADMINPAS",
+          "name": "PGADMINPASS",
           "label": "Postgres initial admin password."
         }
       ]
