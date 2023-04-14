@@ -904,6 +904,44 @@
           "label": "Postgres initial admin password."
         }
       ]
+    },
+    {
+      "type": 3,
+      "title": "Authentik",
+      "description": "Sets up an Authentik instance alongside the required worker, redis, and dynomite for multi-server support.",
+      "categories": ["personal"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/traefik/traefik/master/docs/content/assets/img/traefik.logo.png",
+      "repository": {
+        "url": "https://github.com/faeranne/portainer-templates",
+        "stackfile": "stacks/authentication/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "DYNO_SEED",
+          "label": "Dynomite seed. Enter a random number here."
+        },
+        {
+          "name": "SECRET_KEY",
+          "label": "Encryption key used by Authentik.  Generate and enter key here."
+        },
+        {
+          "name": "PGHOST",
+          "label": "Postgres Host Server."
+        },
+        {
+          "name": "PGDB",
+          "label": "Postgres database name."
+        },
+        {
+          "name": "PGUSER",
+          "label": "Postgres username."
+        },
+        {
+          "name": "PGPASS",
+          "label": "Postgres password."
+        }
+      ]
     }
   ]
 }

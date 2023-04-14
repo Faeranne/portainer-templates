@@ -1,0 +1,82 @@
+version: "3"
+services:
+  authentik:
+    image: ghcr.io/goauthentik/server:2023.3.1
+    restart: unless-stopped
+    command: server
+    volumes:
+      - media:/media
+      - templates:/templates
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: ${PGHOST}
+      AUTHENTIK_POSTGRESQL__USER: ${PGUSER}
+      AUTHENTIK_POSTGRESQL__NAME: ${PGDB}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PGPASS}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: true
+      AUTHENTIK_REDIS__HOST: dynomite
+      AUTHENTIK_REDIS__PORT: 6379
+      AUTHENTIK_SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - authentik
+      - postgres
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.rule=Host(`auth.${PRIMARY_DOMAIN}`)"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+
+  auth_worker:
+    image: ghcr.io/goauthentik/server:2023.3.1
+    restart: unless-stopped
+    command: worker
+    user: root
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: ${PGHOST}
+      AUTHENTIK_POSTGRESQL__USER: ${PGUSER}
+      AUTHENTIK_POSTGRESQL__NAME: ${PGDB}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PGPASS}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: true
+      AUTHENTIK_REDIS__HOST: dynomite
+      AUTHENTIK_REDIS__PORT: 6379
+      AUTHENTIK_SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - authentik
+  redis:
+    image: redis:6
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+    networks:
+      - authentik
+  dynomite:
+    image: dynomite
+    restart: unless-stopped
+    networks:
+      - authentik
+      - traefik
+    environments:
+      REDIS_HOST: redis
+    ports:
+      - 6378:6378
+    volumes:
+      - dynomite:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dynomite-stats.rule=HostSNI(`auth-stats.${PRIMARY_DOMAIN}`)"
+      - "traefik.http.routers.dynomite-stats.entryPoints=websecure"
+      - "traefik.http.services.dynomite-stats.loadbalancer.server.port=2222"
+volumes:
+  media:
+  templates:
+  dynomite:
+networks:
+  traefik:
+    name: web_interface
+    external: true
+  auth:
+    name: auth_interface
+    attachable: true
+  postgres:
+    name: postgres_interface
+    external: true
